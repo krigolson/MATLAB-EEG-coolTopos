@@ -1,0 +1,33 @@
+%% exampleGroup.m
+% Group-level EEG topography and channel-wise statistics.
+
+clear;
+clc;
+
+thisDir = fileparts(mfilename('fullpath'));
+cd(thisDir);
+
+dataFile = 'rewpGrandERP.mat';
+dataVariable = 'grandERP';
+condition1Idx = 1;
+condition2Idx = 2;
+timeIndex = 317;
+
+outputs = doGroupBrainTopo(dataFile, ...
+    'DataVariable', dataVariable, ...
+    'Analysis', 'contrast', ...
+    'Condition1Idx', condition1Idx, ...
+    'Condition2Idx', condition2Idx, ...
+    'TimeIndex', timeIndex, ...
+    'OutputDir', fullfile('outputs', 'group_contrast'), ...
+    'OutputPrefix', 'group_condition01minus02_t317', ...
+    'Alpha', 0.05, ...
+    'Correction', 'fdr', ...
+    'Tail', 'both');
+
+fprintf('\nDone.\n');
+fprintf('Group mean topo:\n%s\n\n', outputs.meanTopoFile);
+fprintf('Group stats topo:\n%s\n\n', outputs.statsTopoFile);
+fprintf('Channel statistics CSV:\n%s\n\n', outputs.csvFile);
+fprintf('MAT file:\n%s\n\n', outputs.matFile);
+fprintf('Significant channels: %d\n', nnz(outputs.stats.significant));

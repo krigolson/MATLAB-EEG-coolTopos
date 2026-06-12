@@ -22,6 +22,7 @@ addParameter(parser, 'NeutralWidth', 0.12, @(x) isnumeric(x) && isscalar(x) && .
     isfinite(x) && x >= 0 && x < 1);
 addParameter(parser, 'ProjectionSigma', 0.22, @(x) isnumeric(x) && isscalar(x) && ...
     isfinite(x) && x > 0);
+addParameter(parser, 'BrainTemplate', 'brainnet', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'SurfaceFile', '', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'HighlightMask', [], @(x) isempty(x) || islogical(x) || isnumeric(x));
 addParameter(parser, 'Resolution', 250, @(x) isnumeric(x) && isscalar(x) && x > 0);
@@ -35,7 +36,7 @@ if numel(values) ~= numel(chanlocs)
         numel(values), numel(chanlocs));
 end
 
-[vertices, faces] = load_cortex_surface(char(opts.SurfaceFile));
+[vertices, faces, surfaceKind] = load_cortex_surface(char(opts.BrainTemplate), char(opts.SurfaceFile));
 electrodeDirections = chanlocs_to_mni_directions(chanlocs);
 vertexDirections = vertices_to_directions(vertices);
 vertexValues = project_channels_to_vertices(vertexDirections, electrodeDirections, ...
@@ -82,7 +83,7 @@ if isSixView
         0.52 0.10 0.28 0.36];
     for viewIdx = 1:numel(viewNames)
         ax = axes('Parent', fig, 'Position', axesPositions(viewIdx, :));
-        render_cortex_axes(ax, vertices, faces, colors, viewNames{viewIdx}, 1.02);
+        render_cortex_axes(ax, vertices, faces, colors, viewNames{viewIdx}, 1.02, surfaceKind);
         title(ax, viewNames{viewIdx}, 'Color', 'w', 'FontWeight', 'normal');
     end
     titleText = char(opts.Title);
@@ -96,7 +97,7 @@ else
     set(fig, 'Position', [100 100 1100 820]);
     ax = axes('Parent', fig, 'Color', 'k');
     set(ax, 'Position', [0 0 1 1]);
-    render_cortex_axes(ax, vertices, faces, colors, viewSpec, 1.12);
+    render_cortex_axes(ax, vertices, faces, colors, viewSpec, 1.12, surfaceKind);
     titleText = char(opts.Title);
     if ~isempty(titleText)
         title(ax, titleText, 'Color', 'w', 'FontWeight', 'normal', ...
@@ -117,20 +118,76 @@ outputs.colorRange = colorRange;
 outputs.colorLimit = max(abs(colorRange));
 end
 
-function [vertices, faces] = load_cortex_surface(surfaceFile)
+function [vertices, faces, surfaceKind] = load_cortex_surface(brainTemplate, surfaceFile)
+rootDir = fileparts(mfilename('fullpath'));
 if isempty(surfaceFile)
-    surfaceFile = fullfile(fileparts(mfilename('fullpath')), ...
-        'templates', 'cortex', 'brainstorm_icbm152_cortex_pial_low.mat');
+    surfaceFile = builtin_surface_file(rootDir, brainTemplate);
 end
+surfaceKind = surface_kind_from_template(brainTemplate, surfaceFile);
 if ~exist(surfaceFile, 'file')
     error([mfilename ':MissingSurface'], ...
         'Could not find cortex surface file: %s', surfaceFile);
 end
-cortex = load(surfaceFile, 'Vertices', 'Faces');
-vertices = cortex.Vertices;
-faces = cortex.Faces;
+
+function surfaceKind = surface_kind_from_template(brainTemplate, surfaceFile)
+[~, ~, ext] = fileparts(surfaceFile);
+if strcmpi(ext, '.nv') || startsWith(lower(char(brainTemplate)), 'brainnet')
+    surfaceKind = 'brainnet';
+else
+    surfaceKind = 'brainstorm';
+end
+end
+[~, ~, ext] = fileparts(surfaceFile);
+switch lower(ext)
+    case '.mat'
+        cortex = load(surfaceFile, 'Vertices', 'Faces');
+        if isfield(cortex, 'Vertices') && isfield(cortex, 'Faces')
+            vertices = cortex.Vertices;
+            faces = cortex.Faces;
+        else
+            loaded = load(surfaceFile, 'mesh');
+            vertices = loaded.mesh.pos;
+            faces = loaded.mesh.tri;
+        end
+    case '.nv'
+        [vertices, faces] = read_brainnet_nv(surfaceFile);
+    otherwise
+        error([mfilename ':BadSurfaceFile'], ...
+            'SurfaceFile must be a .mat or BrainNet .nv file.');
+end
 if max(abs(vertices(:))) < 1
     vertices = vertices * 1000;
+end
+end
+
+function surfaceFile = builtin_surface_file(rootDir, brainTemplate)
+templateDir = fullfile(rootDir, 'templates', 'cortex');
+switch lower(char(brainTemplate))
+    case {'brainnet', 'brainnet_icbm152', 'icbm152'}
+        surfaceFile = fullfile(templateDir, 'brainnet_icbm152.nv');
+    case {'brainnet_smoothed', 'brainnetsmoothed', 'icbm152_smoothed'}
+        surfaceFile = fullfile(templateDir, 'brainnet_icbm152_smoothed.nv');
+    case {'brainstorm', 'brainstorm_low', 'brainstorm_pial'}
+        surfaceFile = fullfile(templateDir, 'brainstorm_icbm152_cortex_pial_low.mat');
+    otherwise
+        error([mfilename ':BadBrainTemplate'], ...
+            'BrainTemplate must be brainnet, brainnet_smoothed, or brainstorm.');
+end
+end
+
+function [vertices, faces] = read_brainnet_nv(surfaceFile)
+fid = fopen(surfaceFile, 'r');
+if fid < 0
+    error([mfilename ':CannotOpenSurface'], ...
+        'Could not open BrainNet surface file: %s', surfaceFile);
+end
+cleaner = onCleanup(@() fclose(fid));
+nVertices = fscanf(fid, '%d', 1);
+vertices = fscanf(fid, '%f', [3 nVertices]).';
+nFaces = fscanf(fid, '%d', 1);
+faces = fscanf(fid, '%d', [3 nFaces]).';
+if min(faces(:)) == 0
+    faces = faces + 1;
 end
 end
 
@@ -300,7 +357,7 @@ greenToRed = [linspace(0, 1, n - half).', ...
 cmap = [blueToGreen; greenToRed];
 end
 
-function render_cortex_axes(ax, vertices, faces, colors, viewSpec, zoomFactor)
+function render_cortex_axes(ax, vertices, faces, colors, viewSpec, zoomFactor, surfaceKind)
 set(ax, 'Color', 'k');
 patch('Parent', ax, ...
     'Vertices', vertices, ...
@@ -313,7 +370,7 @@ patch('Parent', ax, ...
     'AmbientStrength', 0.34);
 axis(ax, 'equal');
 axis(ax, 'off');
-view(ax, view_to_az_el(viewSpec));
+view(ax, view_to_az_el(viewSpec, surfaceKind));
 camlight(ax, 'headlight');
 camlight(ax, -80, 20);
 camlight(ax, 100, 25);
@@ -322,26 +379,45 @@ material(ax, 'dull');
 camzoom(ax, zoomFactor);
 end
 
-function azel = view_to_az_el(viewSpec)
+function azel = view_to_az_el(viewSpec, surfaceKind)
 if isnumeric(viewSpec)
     azel = viewSpec(:).';
     return;
 end
-switch lower(char(viewSpec))
-    case 'right'
-        azel = [0 0];
-    case 'left'
-        azel = [180 0];
-    case 'front'
-        azel = [90 0];
-    case 'back'
-        azel = [-90 0];
-    case 'top'
-        azel = [0 90];
-    case 'bottom'
-        azel = [0 -90];
-    otherwise
-        error([mfilename ':BadView'], 'Unknown view %s.', char(viewSpec));
+if strcmpi(surfaceKind, 'brainnet')
+    switch lower(char(viewSpec))
+        case 'right'
+            azel = [-90 0];
+        case 'left'
+            azel = [90 0];
+        case 'front'
+            azel = [180 0];
+        case 'back'
+            azel = [0 0];
+        case 'top'
+            azel = [0 90];
+        case 'bottom'
+            azel = [0 -90];
+        otherwise
+            error([mfilename ':BadView'], 'Unknown view %s.', char(viewSpec));
+    end
+else
+    switch lower(char(viewSpec))
+        case 'right'
+            azel = [0 0];
+        case 'left'
+            azel = [180 0];
+        case 'front'
+            azel = [90 0];
+        case 'back'
+            azel = [-90 0];
+        case 'top'
+            azel = [0 90];
+        case 'bottom'
+            azel = [0 -90];
+        otherwise
+            error([mfilename ':BadView'], 'Unknown view %s.', char(viewSpec));
+    end
 end
 end
 

@@ -15,7 +15,7 @@ The main group-level function is:
 doGroupBrainTopo
 ```
 
-The default plots use a six-view cortical brain surface and an adaptive
+The default plots use a five-view BrainNet ICBM152 cortical brain surface and an adaptive
 brain-neutral colormap:
 
 - blue/cyan: lower end of the current map
@@ -36,7 +36,7 @@ exampleUsage
 ```
 
 This loads `exampleSubjectData.mat`, selects condition 1 at sample 317, and
-saves a six-view brain-surface EEG topography, a channel CSV file, and a
+saves a five-view brain-surface EEG topography, a channel CSV file, and a
 `.mat` output.
 
 ## Data Shape
@@ -179,6 +179,23 @@ Set the width of the neutral middle band:
 
 Larger values leave more of the brain surface in the natural cortex color.
 
+Choose the brain surface:
+
+```matlab
+'BrainTemplate', 'brainnet'           % default, prettier ICBM152 surface
+'BrainTemplate', 'brainnet_smoothed'  % smoother BrainNet surface
+'BrainTemplate', 'brainstorm'         % older low-resolution surface
+```
+
+Use a custom surface file:
+
+```matlab
+'SurfaceFile', '/path/to/my_surface.nv'
+```
+
+Custom surfaces can be BrainNet `.nv` files or MATLAB `.mat` files with
+`Vertices`/`Faces` or FieldTrip-style `mesh.pos`/`mesh.tri`.
+
 Use the older blue-green-red color range:
 
 ```matlab
@@ -205,10 +222,14 @@ Close figures automatically for batch processing:
   - small subject-level example
 - `rewpGrandERP.mat`
   - group-level example data currently used by `exampleGroup.m`
+- `templates/cortex/brainnet_icbm152.nv`
+  - default BrainNet ICBM152 cortical surface
+- `templates/cortex/brainstorm_icbm152_cortex_pial_low.mat`
+  - fallback low-resolution Brainstorm cortical surface
 
 ## Notes
 
 These functions do not call EEGLAB. By default, channel values are projected
 from the 3D electrode directions in `matlocs.mat` onto the included
-Brainstorm ICBM152 cortical surface. A flat scalp disk is still available
+BrainNet ICBM152 cortical surface. A flat scalp disk is still available
 with `'PlotStyle', 'scalp'`.

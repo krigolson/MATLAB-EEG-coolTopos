@@ -32,7 +32,7 @@ In MATLAB:
 
 ```matlab
 cd('/path/to/coolTopos')
-exampleUseage
+exampleUsage
 ```
 
 This loads `exampleSubjectData.mat`, selects condition 1 at sample 317, and

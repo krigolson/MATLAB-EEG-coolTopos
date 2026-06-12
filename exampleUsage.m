@@ -1,4 +1,4 @@
-%% exampleUseage.m
+%% exampleUsage.m
 % Simple subject-level EEG topography example.
 
 clear;

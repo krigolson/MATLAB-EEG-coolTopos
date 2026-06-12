@@ -35,9 +35,9 @@ cd('/path/to/coolTopos')
 exampleUsage
 ```
 
-This loads `exampleSubjectData.mat`, selects condition 1 at sample 317, and
-saves a five-view brain-surface EEG topography, a channel CSV file, and a
-`.mat` output.
+This loads the bundled `sampleGrandERP.mat`, selects subject 1, condition 1
+at sample 317, and saves a five-view brain-surface EEG topography, a channel
+CSV file, and a `.mat` output.
 
 ## Data Shape
 
@@ -59,24 +59,32 @@ For one already-selected condition, the data can be:
 channels x time
 ```
 
-The example subject file contains:
+The bundled sample file is:
 
 ```text
-exampleData
+sampleGrandERP.mat
 ```
 
-with size:
+It contains:
 
 ```text
-63 channels x 400 time points x 2 conditions
+sampleGrandERP
+chanlocs
+```
+
+`sampleGrandERP` has size:
+
+```text
+63 channels x 400 time points x 2 conditions x 25 subjects
 ```
 
 ## Subject-Level Condition Topography
 
 ```matlab
-load('exampleSubjectData.mat', 'exampleData')
-
-outputs = doBrainTopo(exampleData, ...
+outputs = doBrainTopo('sampleGrandERP.mat', ...
+    'DataVariable', 'sampleGrandERP', ...
+    'ChanlocsFile', 'sampleGrandERP.mat', ...
+    'SubjectIdx', 1, ...
     'ConditionIdx', 1, ...
     'TimeIndex', 317, ...
     'OutputDir', 'outputs', ...
@@ -95,8 +103,11 @@ The code does not care what the conditions mean. Arrange your data so
 condition 1 is the positive side of the contrast.
 
 ```matlab
-outputs = doBrainTopo(exampleData, ...
+outputs = doBrainTopo('sampleGrandERP.mat', ...
+    'DataVariable', 'sampleGrandERP', ...
+    'ChanlocsFile', 'sampleGrandERP.mat', ...
     'Analysis', 'contrast', ...
+    'SubjectIdx', 1, ...
     'Condition1Idx', 1, ...
     'Condition2Idx', 2, ...
     'TimeIndex', 317, ...
@@ -124,8 +135,9 @@ It also saves:
 Example:
 
 ```matlab
-outputs = doGroupBrainTopo('rewpGrandERP.mat', ...
-    'DataVariable', 'grandERP', ...
+outputs = doGroupBrainTopo('sampleGrandERP.mat', ...
+    'DataVariable', 'sampleGrandERP', ...
+    'ChanlocsFile', 'sampleGrandERP.mat', ...
     'Analysis', 'contrast', ...
     'Condition1Idx', 1, ...
     'Condition2Idx', 2, ...
@@ -216,12 +228,8 @@ Close figures automatically for batch processing:
 
 ## Required Files
 
-- `matlocs.mat`
-  - channel locations
-- `exampleSubjectData.mat`
-  - small subject-level example
-- `rewpGrandERP.mat`
-  - group-level example data currently used by `exampleGroup.m`
+- `sampleGrandERP.mat`
+  - bundled group-level sample data and channel locations
 - `templates/cortex/brainnet_icbm152.nv`
   - default BrainNet ICBM152 cortical surface
 - `templates/cortex/brainstorm_icbm152_cortex_pial_low.mat`
@@ -230,6 +238,6 @@ Close figures automatically for batch processing:
 ## Notes
 
 These functions do not call EEGLAB. By default, channel values are projected
-from the 3D electrode directions in `matlocs.mat` onto the included
-BrainNet ICBM152 cortical surface. A flat scalp disk is still available
-with `'PlotStyle', 'scalp'`.
+from the 3D electrode directions in the `chanlocs` variable in
+`sampleGrandERP.mat` onto the included BrainNet ICBM152 cortical surface. A
+flat scalp disk is still available with `'PlotStyle', 'scalp'`.

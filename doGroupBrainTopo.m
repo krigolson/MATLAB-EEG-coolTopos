@@ -7,13 +7,13 @@ function outputs = doGroupBrainTopo(dataInput, varargin)
 %   Data should be channels x time x conditions x subjects.
 
 if nargin < 1 || isempty(dataInput)
-    dataInput = 'rewpGrandERP.mat';
+    dataInput = 'sampleGrandERP.mat';
 end
 
 parser = inputParser;
 parser.FunctionName = mfilename;
-addParameter(parser, 'DataVariable', 'grandERP', @(x) ischar(x) || isstring(x));
-addParameter(parser, 'ChanlocsFile', 'matlocs.mat', @(x) ischar(x) || isstring(x));
+addParameter(parser, 'DataVariable', 'sampleGrandERP', @(x) ischar(x) || isstring(x));
+addParameter(parser, 'ChanlocsFile', 'sampleGrandERP.mat', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'OutputDir', 'outputs', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'OutputPrefix', '', @(x) ischar(x) || isstring(x));
 addParameter(parser, 'Analysis', 'contrast', @(x) ischar(x) || isstring(x));
@@ -45,7 +45,7 @@ if ~exist(outputDir, 'dir')
     mkdir(outputDir);
 end
 
-[raw, dataInfo] = load_data(dataInput, opts);
+[raw, dataInfo] = load_data(resolve_data_input(dataInput, rootDir), opts);
 chanlocs = load_chanlocs(resolve_path(char(opts.ChanlocsFile), rootDir));
 if size(raw, 1) ~= numel(chanlocs)
     error([mfilename ':ChannelMismatch'], ...
@@ -195,6 +195,13 @@ else
     info.variable = varName;
 end
 info.rawSize = size(raw);
+end
+
+function dataInput = resolve_data_input(dataInput, rootDir)
+if isnumeric(dataInput)
+    return;
+end
+dataInput = resolve_path(char(dataInput), rootDir);
 end
 
 function chanlocs = load_chanlocs(chanlocsFile)
